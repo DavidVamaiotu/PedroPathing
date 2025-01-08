@@ -71,6 +71,7 @@ public class Follower {
     private DcMotorEx rightFront;
     private DcMotorEx rightRear;
     private List<DcMotorEx> motors;
+    private VoltageSensor vSensor;
 
     private DriveVectorScaler driveVectorScaler;
 
@@ -182,6 +183,8 @@ public class Follower {
         leftRear.setDirection(leftRearMotorDirection);
         rightFront.setDirection(rightFrontMotorDirection);
         rightRear.setDirection(rightRearMotorDirection);
+
+        vSensor = hardwareMap.voltageSensor.iterator().next();
 
         motors = Arrays.asList(leftFront, leftRear, rightFront, rightRear);
 
@@ -524,12 +527,12 @@ public class Follower {
                 if (holdingPosition) {
                     closestPose = currentPath.getClosestPoint(poseUpdater.getPose(), 1);
 
+                    double voltage = vSensor.getVoltage();
+
                     drivePowers = driveVectorScaler.getDrivePowers(MathFunctions.scalarMultiplyVector(getTranslationalCorrection(), holdPointTranslationalScaling), MathFunctions.scalarMultiplyVector(getHeadingVector(), holdPointHeadingScaling), new Vector(), poseUpdater.getPose().getHeading());
 
                     for (int i = 0; i < motors.size(); i++) {
-                        if (Math.abs(motors.get(i).getPower() - drivePowers[i]) > FollowerConstants.motorCachingThreshold) {
-                            motors.get(i).setPower(drivePowers[i]);
-                        }
+                        motors.get(i).setPower(drivePowers[i] * (12.0 / voltage));
                     }
                 } else {
                     if (isBusy) {
@@ -537,12 +540,12 @@ public class Follower {
 
                         if (followingPathChain) updateCallbacks();
 
+                        double voltage = vSensor.getVoltage();
+
                         drivePowers = driveVectorScaler.getDrivePowers(getCorrectiveVector(), getHeadingVector(), getDriveVector(), poseUpdater.getPose().getHeading());
 
                         for (int i = 0; i < motors.size(); i++) {
-                            if (Math.abs(motors.get(i).getPower() - drivePowers[i]) > FollowerConstants.motorCachingThreshold) {
-                                motors.get(i).setPower(drivePowers[i]);
-                            }
+                            motors.get(i).setPower(drivePowers[i] * (12.0 / voltage));
                         }
                     }
                     if (currentPath.isAtParametricEnd()) {
@@ -584,12 +587,11 @@ public class Follower {
             drivePowers = driveVectorScaler.getDrivePowers(getCentripetalForceCorrection(), teleopHeadingVector, teleopDriveVector, poseUpdater.getPose().getHeading());
 
             for (int i = 0; i < motors.size(); i++) {
-                if (Math.abs(motors.get(i).getPower() - drivePowers[i]) > FollowerConstants.motorCachingThreshold) {
-                    motors.get(i).setPower(drivePowers[i]);
-                }
+                motors.get(i).setPower(drivePowers[i]);
             }
         }
     }
+
 
     /**
      * This sets the teleop drive vectors. This defaults to robot centric.
